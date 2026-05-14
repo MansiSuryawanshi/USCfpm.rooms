@@ -1,5 +1,5 @@
-// Room and Equipment Data
-const roomsData = [
+// Default Room and Equipment Data
+const defaultRoomsData = [
     {
         name: "FPM101",
         equipment: ["ZoomTV", "Projector", "Keyboard & Mouse"]
@@ -34,8 +34,17 @@ const roomsData = [
     }
 ];
 
+// Load rooms data from localStorage or use default
+let roomsData = JSON.parse(localStorage.getItem('roomsData')) || defaultRoomsData;
+
+// Function to save rooms data to localStorage
+function saveRoomsToStorage() {
+    localStorage.setItem('roomsData', JSON.stringify(roomsData));
+}
+
 // State management
 const state = {};
+let isEditMode = false;
 
 // Initialize state
 roomsData.forEach(room => {
@@ -54,11 +63,66 @@ const doneBtn = document.getElementById('done-btn');
 const reportModal = document.getElementById('report-modal');
 const reportText = document.getElementById('report-text');
 const copyBtn = document.getElementById('copy-btn');
-const closeBtn = document.querySelector('.close-btn');
+const closeBtn = document.getElementById('close-report-modal');
+const loginContainer = document.getElementById('login-container');
+const loginBtn = document.getElementById('login-btn');
+const passwordInput = document.getElementById('password');
+const loginError = document.getElementById('login-error');
+const appContainer = document.querySelector('.app-container');
+
+const CORRECT_PASSWORD = 'fpmrooms2026';
+
+function checkLogin() {
+    if (sessionStorage.getItem('isLoggedIn') === 'true') {
+        showDashboard();
+    } else {
+        showLogin();
+    }
+}
+
+function showDashboard() {
+    loginContainer.classList.add('hidden');
+    appContainer.classList.remove('hidden');
+}
+
+function showLogin() {
+    loginContainer.classList.remove('hidden');
+    appContainer.classList.add('hidden');
+}
+
+loginBtn.onclick = () => {
+    const password = passwordInput.value;
+    if (password === CORRECT_PASSWORD) {
+        sessionStorage.setItem('isLoggedIn', 'true');
+        showDashboard();
+    } else {
+        loginError.classList.remove('hidden');
+        passwordInput.value = '';
+    }
+};
+
+passwordInput.onkeypress = (e) => {
+    if (e.key === 'Enter') {
+        loginBtn.click();
+    }
+};
+
+// Check login state
+checkLogin();
 
 // Render Rooms
 function renderRooms() {
     roomsContainer.innerHTML = '';
+    
+    if (isEditMode) {
+        const addRoomBtn = document.createElement('button');
+        addRoomBtn.className = 'btn btn-secondary';
+        addRoomBtn.style.marginBottom = '16px';
+        addRoomBtn.style.width = '100%';
+        addRoomBtn.textContent = '+ Add New Room';
+        addRoomBtn.onclick = () => openEditModal('add-room');
+        roomsContainer.appendChild(addRoomBtn);
+    }
     
     roomsData.forEach(room => {
         const card = document.createElement('div');
@@ -67,7 +131,31 @@ function renderRooms() {
         
         const title = document.createElement('div');
         title.className = 'room-title';
-        title.textContent = room.name;
+        
+        const titleText = document.createElement('span');
+        titleText.className = 'room-title-text';
+        titleText.textContent = room.name;
+        title.appendChild(titleText);
+        
+        if (isEditMode) {
+            const editControls = document.createElement('div');
+            editControls.className = 'edit-controls';
+            
+            const editBtn = document.createElement('button');
+            editBtn.className = 'icon-btn edit-icon-btn';
+            editBtn.innerHTML = '✏️';
+            editBtn.onclick = () => openEditModal('edit-room', room.name);
+            
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'icon-btn delete-btn';
+            deleteBtn.innerHTML = '❌';
+            deleteBtn.onclick = () => deleteRoom(room.name);
+            
+            editControls.appendChild(editBtn);
+            editControls.appendChild(deleteBtn);
+            title.appendChild(editControls);
+        }
+        
         card.appendChild(title);
         
         const eqList = document.createElement('div');
@@ -82,26 +170,54 @@ function renderRooms() {
             nameSpan.textContent = item;
             eqItem.appendChild(nameSpan);
             
-            const toggleGroup = document.createElement('div');
-            toggleGroup.className = 'toggle-group';
+            if (isEditMode) {
+                const editControls = document.createElement('div');
+                editControls.className = 'edit-controls';
+                
+                const editBtn = document.createElement('button');
+                editBtn.className = 'icon-btn edit-icon-btn';
+                editBtn.innerHTML = '✏️';
+                editBtn.onclick = () => openEditModal('edit-device', room.name, item);
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'icon-btn delete-btn';
+                deleteBtn.innerHTML = '❌';
+                deleteBtn.onclick = () => deleteDevice(room.name, item);
+                
+                editControls.appendChild(editBtn);
+                editControls.appendChild(deleteBtn);
+                eqItem.appendChild(editControls);
+            } else {
+                const toggleGroup = document.createElement('div');
+                toggleGroup.className = 'toggle-group';
+                
+                const yesBtn = document.createElement('button');
+                yesBtn.className = 'toggle-btn yes active';
+                yesBtn.textContent = 'Yes';
+                yesBtn.onclick = () => setStatus(room.name, item, 'Yes', yesBtn, noBtn, card);
+                
+                const noBtn = document.createElement('button');
+                noBtn.className = 'toggle-btn no';
+                noBtn.textContent = 'No';
+                noBtn.onclick = () => setStatus(room.name, item, 'No', yesBtn, noBtn, card);
+                
+                toggleGroup.appendChild(yesBtn);
+                toggleGroup.appendChild(noBtn);
+                eqItem.appendChild(toggleGroup);
+            }
             
-            const yesBtn = document.createElement('button');
-            yesBtn.className = 'toggle-btn yes active';
-            yesBtn.textContent = 'Yes';
-            yesBtn.onclick = () => setStatus(room.name, item, 'Yes', yesBtn, noBtn, card);
-            
-            const noBtn = document.createElement('button');
-            noBtn.className = 'toggle-btn no';
-            noBtn.textContent = 'No';
-            noBtn.onclick = () => setStatus(room.name, item, 'No', yesBtn, noBtn, card);
-            
-            toggleGroup.appendChild(yesBtn);
-            toggleGroup.appendChild(noBtn);
-            eqItem.appendChild(toggleGroup);
             eqList.appendChild(eqItem);
         });
         
         card.appendChild(eqList);
+        
+        if (isEditMode) {
+            const addDeviceBtn = document.createElement('button');
+            addDeviceBtn.className = 'add-btn';
+            addDeviceBtn.innerHTML = '<span>+</span> Add Device';
+            addDeviceBtn.onclick = () => openEditModal('add-device', room.name);
+            card.appendChild(addDeviceBtn);
+        }
         
         // Comment Box
         const commentContainer = document.createElement('div');
@@ -110,6 +226,11 @@ function renderRooms() {
         const textarea = document.createElement('textarea');
         textarea.className = 'comment-box';
         textarea.placeholder = 'Add a comment...';
+        
+        if (state[room.name] && state[room.name].comment) {
+            textarea.value = state[room.name].comment;
+        }
+        
         textarea.oninput = (e) => {
             state[room.name].comment = e.target.value;
         };
@@ -147,6 +268,154 @@ function updateCardStatus(roomName, card) {
     } else {
         card.classList.remove('status-has-issue');
         card.classList.add('status-all-clear');
+    }
+}
+
+// Modal State
+let currentModalAction = null; // 'add-room', 'edit-room', 'add-device', 'edit-device'
+let currentRoomName = null;
+let currentDeviceName = null;
+
+const editModal = document.getElementById('edit-modal');
+const editModalTitle = document.getElementById('edit-modal-title');
+const editInput = document.getElementById('edit-input');
+const editLabel = document.getElementById('edit-label');
+const cancelEditBtn = document.getElementById('cancel-edit-btn');
+const saveEditBtn = document.getElementById('save-edit-btn');
+const closeEditModalBtn = document.getElementById('close-edit-modal');
+
+function openEditModal(action, roomName = null, deviceName = null) {
+    currentModalAction = action;
+    currentRoomName = roomName;
+    currentDeviceName = deviceName;
+    
+    editModal.classList.add('open');
+    
+    if (saveEditBtn) saveEditBtn.textContent = 'Save';
+    
+    if (action === 'add-room') {
+        editModalTitle.textContent = 'Add New Room';
+        editLabel.textContent = 'Room Name';
+        editInput.placeholder = 'Enter room name';
+        editInput.value = '';
+    } else if (action === 'edit-room') {
+        editModalTitle.textContent = 'Edit Room Name';
+        editLabel.textContent = 'Room Name';
+        editInput.placeholder = 'Enter room name';
+        editInput.value = roomName;
+    } else if (action === 'add-device') {
+        editModalTitle.textContent = `Add Device to ${roomName}`;
+        editLabel.textContent = 'Device Name';
+        editInput.placeholder = 'Enter device name';
+        editInput.value = '';
+    } else if (action === 'edit-device') {
+        editModalTitle.textContent = `Edit Device in ${roomName}`;
+        editLabel.textContent = 'Device Name';
+        editInput.placeholder = 'Enter device name';
+        editInput.value = deviceName;
+    } else if (action === 'password') {
+        editModalTitle.textContent = 'Enter Edit Mode Password';
+        editLabel.textContent = 'Password';
+        editInput.placeholder = 'Enter password';
+        editInput.value = '';
+        editInput.type = 'password';
+        if (saveEditBtn) saveEditBtn.textContent = 'Continue';
+    }
+    
+    editInput.focus();
+}
+
+function closeEditModal() {
+    editModal.classList.remove('open');
+    currentModalAction = null;
+    currentRoomName = null;
+    currentDeviceName = null;
+    editInput.value = '';
+    editInput.type = 'text'; // Reset to text
+}
+
+if (cancelEditBtn) cancelEditBtn.onclick = closeEditModal;
+if (closeEditModalBtn) closeEditModalBtn.onclick = closeEditModal;
+
+if (saveEditBtn) {
+    saveEditBtn.onclick = () => {
+        const value = editInput.value.trim();
+        if (!value) return;
+        
+        if (currentModalAction === 'password') {
+            if (value === 'fpmadmin') {
+                isEditMode = true;
+                const editModeBtn = document.getElementById('edit-mode-btn');
+                if (editModeBtn) {
+                    editModeBtn.textContent = 'Exit Edit';
+                    editModeBtn.classList.toggle('btn-secondary');
+                    editModeBtn.classList.toggle('btn-primary');
+                }
+                closeEditModal();
+                renderRooms();
+            } else {
+                alert('Incorrect password!');
+            }
+            return;
+        }
+        
+        if (confirm("Are you sure you want to save these changes?")) {
+            if (currentModalAction === 'add-room') {
+                roomsData.push({ name: value, equipment: [] });
+                // Initialize state for new room
+                state[value] = { equipment: {}, comment: "" };
+            } else if (currentModalAction === 'edit-room') {
+                const room = roomsData.find(r => r.name === currentRoomName);
+                if (room) {
+                    room.name = value;
+                    // Update state key if needed
+                    state[value] = state[currentRoomName];
+                    delete state[currentRoomName];
+                }
+            } else if (currentModalAction === 'add-device') {
+                const room = roomsData.find(r => r.name === currentRoomName);
+                if (room) {
+                    room.equipment.push(value);
+                    state[currentRoomName].equipment[value] = "Yes"; // Default to working
+                }
+            } else if (currentModalAction === 'edit-device') {
+                const room = roomsData.find(r => r.name === currentRoomName);
+                if (room) {
+                    const index = room.equipment.indexOf(currentDeviceName);
+                    if (index !== -1) {
+                        room.equipment[index] = value;
+                        // Update state key
+                        state[currentRoomName].equipment[value] = state[currentRoomName].equipment[currentDeviceName];
+                        delete state[currentRoomName].equipment[currentDeviceName];
+                    }
+                }
+            }
+            
+            saveRoomsToStorage();
+            closeEditModal();
+            renderRooms();
+        }
+    };
+}
+
+function deleteRoom(roomName) {
+    if (confirm(`Are you sure you want to delete ${roomName}?`)) {
+        roomsData = roomsData.filter(r => r.name !== roomName);
+        delete state[roomName];
+        saveRoomsToStorage();
+        renderRooms();
+    }
+}
+
+function deleteDevice(roomName, deviceName) {
+    if (confirm(`Are you sure you want to delete ${deviceName} from ${roomName}?`)) {
+        const room = roomsData.find(r => r.name === roomName);
+        if (room) {
+            room.equipment = room.equipment.filter(e => e !== deviceName);
+            delete state[roomName].equipment[deviceName];
+            saveRoomsToStorage();
+            renderRooms();
+        }
     }
 }
 
@@ -271,6 +540,22 @@ function generateReport() {
 }
 
 // Event Listeners
+const editModeBtn = document.getElementById('edit-mode-btn');
+
+if (editModeBtn) {
+    editModeBtn.onclick = () => {
+        if (!isEditMode) {
+            openEditModal('password');
+        } else {
+            isEditMode = false;
+            editModeBtn.textContent = 'Edit';
+            editModeBtn.classList.toggle('btn-secondary');
+            editModeBtn.classList.toggle('btn-primary');
+            renderRooms();
+        }
+    };
+}
+
 doneBtn.onclick = () => {
     const report = generateReport();
     reportText.value = report;
