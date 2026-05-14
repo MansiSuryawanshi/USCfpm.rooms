@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+@theme {
+  --color-usc-red: #990000;
+  --color-usc-gold: #FFCC00;
+  --font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
+  --font-serif: 'Times New Roman', Georgia, serif;
+}
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased min-h-screen flex flex-col;
+    /* Optional: Subtle background pattern for a slightly more premium feel */
+    background-image: radial-gradient(at 0% 0%, rgba(153, 0, 0, 0.03) 0px, transparent 50%),
+                      radial-gradient(at 100% 0%, rgba(255, 204, 0, 0.03) 0px, transparent 50%);
+    background-attachment: fixed;
+  }
+}
+
+/* Custom scrollbar for webkit */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-300 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-400;
+}
+
